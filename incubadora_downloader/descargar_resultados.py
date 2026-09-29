@@ -45,6 +45,13 @@ PLANTA_RE = re.compile(r"PLANTA\s*\d+")
 
 def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.goto(BASE_URL)
+    page.wait_for_load_state("networkidle")
+    # El radio "Rango de Fechas" dispara una recarga del formulario al
+    # hacer clic; se usa .click() en vez de .check() porque Playwright
+    # verifica el estado "checked" apenas termina la recarga y a veces
+    # todavía no quedó reflejado, aunque el clic sí se aplicó.
+    page.get_by_role("radio", name="Rango de Fechas").click()
+    page.wait_for_load_state("networkidle")
     page.locator("#vQANO").select_option(str(fecha.year))
     page.locator("#vQMESDESDE").select_option(str(fecha.month))
     page.locator("#vQMESHASTA").select_option(str(fecha.month))
@@ -52,7 +59,6 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.locator("#vDIAHASTA").fill(str(fecha.day))
     page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
     page.locator("#vPSEXO").select_option(SEXO_TODOS)
-    page.get_by_role("radio", name="Rango de Fechas").check()
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
 
