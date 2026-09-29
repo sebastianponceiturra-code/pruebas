@@ -42,6 +42,8 @@ MAESTRO_XLSX = SCRIPT_DIR / "nacimientos_acumulado.xlsx"
 SALA_RE = re.compile(r"INCUB\.")
 PLANTA_RE = re.compile(r"PLANTA\s*\d+")
 
+DEBUG = False
+
 
 def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.goto(BASE_URL)
@@ -69,6 +71,10 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.locator("#vDIAHASTA").fill(str(fecha.day))
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
+
+    if DEBUG:
+        page.screenshot(path=str(SCRIPT_DIR / "debug_ultima_consulta.png"), full_page=True)
+        (SCRIPT_DIR / "debug_ultima_consulta.html").write_text(page.content(), encoding="utf-8")
 
 
 def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
@@ -171,7 +177,15 @@ def main() -> None:
         default=True,
         help="Mostrar el navegador mientras corre (por defecto corre oculto)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Guardar debug_ultima_consulta.png/.html con lo que se ve tras Confirmar",
+    )
     args = parser.parse_args()
+
+    global DEBUG
+    DEBUG = args.debug
 
     hoy = dt.date.today()
     desde = args.desde or (hoy - dt.timedelta(days=1))
