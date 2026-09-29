@@ -52,13 +52,21 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     # todavía no quedó reflejado, aunque el clic sí se aplicó.
     page.get_by_role("radio", name="Rango de Fechas").click()
     page.wait_for_load_state("networkidle")
+    # Cada <select> dispara su propia recarga del formulario al cambiar
+    # (igual que el radio), así que se espera después de cada uno antes
+    # de tocar el siguiente campo.
     page.locator("#vQANO").select_option(str(fecha.year))
+    page.wait_for_load_state("networkidle")
     page.locator("#vQMESDESDE").select_option(str(fecha.month))
+    page.wait_for_load_state("networkidle")
     page.locator("#vQMESHASTA").select_option(str(fecha.month))
+    page.wait_for_load_state("networkidle")
+    page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
+    page.wait_for_load_state("networkidle")
+    page.locator("#vPSEXO").select_option(SEXO_TODOS)
+    page.wait_for_load_state("networkidle")
     page.locator("#vDIADESDE").fill(str(fecha.day))
     page.locator("#vDIAHASTA").fill(str(fecha.day))
-    page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
-    page.locator("#vPSEXO").select_option(SEXO_TODOS)
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
 
