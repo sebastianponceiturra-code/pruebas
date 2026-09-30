@@ -101,6 +101,42 @@ def set_dia(page: Page, selector: str, dia: int, reintentos: int = 3) -> None:
     )
 
 
+def set_origen_reproductoras(page: Page, reintentos: int = 3) -> None:
+    """Fija Origen=Reproductoras esperando la cascada real de Sexo.
+
+    Origen dispara, además del onchange normal, un evento especial
+    (EVQORIGEN.CLICK) que recalcula las opciones de Sexo en el
+    servidor. Con Año/Mes (que no tienen esta cascada) una espera fija
+    bastaba, pero para Origen el GXState del servidor seguía mostrando
+    "Abuelas" aunque el combo ya se viera en "Reproductoras". Se espera
+    a una señal concreta de que la cascada terminó: que Sexo quede con
+    la única opción "Broiler" que corresponde a Reproductoras.
+    """
+    locator = page.locator("#vQORIGEN")
+    for intento in range(reintentos):
+        locator.click()
+        page.keyboard.type("Reproductoras", delay=50)
+        page.keyboard.press("Tab")
+        page.wait_for_load_state("networkidle")
+        try:
+            page.wait_for_function(
+                """() => {
+                    const sel = document.querySelector('#vPSEXO');
+                    return !!sel && sel.options.length === 1
+                        && sel.options[0].text.trim() === 'Broiler';
+                }""",
+                timeout=5000,
+            )
+        except Exception:
+            continue
+        if locator.input_value() == ORIGEN_REPRODUCTORAS:
+            return
+    raise RuntimeError(
+        "No se pudo fijar Origen=Reproductoras: la cascada de Sexo nunca "
+        "quedó en 'Broiler' tras varios intentos."
+    )
+
+
 def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.goto(BASE_URL)
     page.wait_for_load_state("networkidle")
@@ -114,7 +150,7 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
 
     # Origen primero: cambia qué opciones son válidas en otros campos
     # (como Sexo), así que conviene fijarlo antes que el resto.
-    set_select(page, "#vQORIGEN", "Reproductoras", ORIGEN_REPRODUCTORAS)
+    set_origen_reproductoras(page)
     set_select(page, "#vQANO", str(fecha.year), str(fecha.year))
     mes_texto = MESES[fecha.month - 1]
     set_select(page, "#vQMESDESDE", mes_texto, str(fecha.month))
