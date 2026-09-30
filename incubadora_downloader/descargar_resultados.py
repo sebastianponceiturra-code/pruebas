@@ -66,10 +66,13 @@ def set_select(page: Page, selector: str, texto_visible: str, value: str, reinte
     locator = page.locator(selector)
     for intento in range(reintentos):
         locator.click()
-        page.keyboard.type(texto_visible, delay=50)
+        page.keyboard.type(texto_visible, delay=120)
         page.keyboard.press("Tab")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(300)
+        # La página sincroniza los cambios por WebSocket, no por HTTP
+        # normal, así que "networkidle" no alcanza a esperar esa
+        # sincronización; se agrega una espera generosa adicional.
+        page.wait_for_timeout(1500)
         if locator.input_value() == value:
             return
     raise RuntimeError(
@@ -90,9 +93,10 @@ def set_dia(page: Page, selector: str, dia: int, reintentos: int = 3) -> None:
     for intento in range(reintentos):
         locator.click()
         locator.fill("")
-        locator.press_sequentially(valor)
+        locator.press_sequentially(valor, delay=120)
         page.keyboard.press("Tab")  # dispara el blur que activa la validación
-        page.wait_for_timeout(200)
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1500)
         if locator.input_value() == valor:
             return
     raise RuntimeError(
@@ -115,7 +119,7 @@ def set_origen_reproductoras(page: Page, reintentos: int = 3) -> None:
     locator = page.locator("#vQORIGEN")
     for intento in range(reintentos):
         locator.click()
-        page.keyboard.type("Reproductoras", delay=50)
+        page.keyboard.type("Reproductoras", delay=120)
         page.keyboard.press("Tab")
         page.wait_for_load_state("networkidle")
         try:
@@ -125,10 +129,11 @@ def set_origen_reproductoras(page: Page, reintentos: int = 3) -> None:
                     return !!sel && sel.options.length === 1
                         && sel.options[0].text.trim() === 'Broiler';
                 }""",
-                timeout=5000,
+                timeout=8000,
             )
         except Exception:
             continue
+        page.wait_for_timeout(1500)
         if locator.input_value() == ORIGEN_REPRODUCTORAS:
             return
     raise RuntimeError(
@@ -146,7 +151,7 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     # todavía no quedó reflejado, aunque el clic sí se aplicó.
     page.get_by_role("radio", name="Rango de Fechas").click()
     page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(1500)
 
     # Origen primero: cambia qué opciones son válidas en otros campos
     # (como Sexo), así que conviene fijarlo antes que el resto.
@@ -158,6 +163,10 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     set_dia(page, "#vDIADESDE", fecha.day)
     set_dia(page, "#vDIAHASTA", fecha.day)
 
+    # Espera final extra antes de Confirmar: todos los cambios anteriores
+    # se sincronizan por WebSocket, y conviene darles tiempo de sobra a
+    # asentarse antes de enviar la consulta.
+    page.wait_for_timeout(1500)
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
 
