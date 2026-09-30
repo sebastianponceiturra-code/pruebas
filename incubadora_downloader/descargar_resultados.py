@@ -46,25 +46,35 @@ PLANTA_RE = re.compile(r"PLANTA\s*\d+")
 DEBUG = False
 
 
-def set_select(page: Page, selector: str, value: str, reintentos: int = 3) -> None:
-    """Selecciona un <select> y verifica que el valor quedó aplicado.
+MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
 
-    Estos combos disparan una recarga del formulario al cambiar y, en
-    automatización, a veces la selección se revierte antes de que la
-    recarga termine de asentarse (se detectó comparando el HTML real
-    contra el GXState del servidor). Se reintenta hasta que el valor
-    leído de vuelta coincide con el que se pidió.
+
+def set_select(page: Page, selector: str, texto_visible: str, value: str, reintentos: int = 3) -> None:
+    """Selecciona un <select> tecleando su texto visible y verifica el valor.
+
+    select_option() cambia el valor del combo visualmente (input_value()
+    lo confirma) pero el evento que dispara NO queda marcado como
+    "confiable" para el JavaScript de esta página (GeneXus), así que el
+    servidor nunca se entera del cambio real: el HTML de depuración mostró
+    el combo en el valor correcto pero el GXState del servidor seguía en
+    el valor anterior. Por eso se simula tecleo real (type-ahead nativo
+    del <select>) en vez de select_option().
     """
     locator = page.locator(selector)
     for intento in range(reintentos):
-        locator.select_option(value)
+        locator.click()
+        page.keyboard.type(texto_visible, delay=50)
+        page.keyboard.press("Tab")
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(300)
         if locator.input_value() == value:
             return
     raise RuntimeError(
-        f"No se pudo fijar {selector}={value!r} tras {reintentos} intentos "
-        f"(quedó en {locator.input_value()!r})"
+        f"No se pudo fijar {selector}={value!r} ({texto_visible!r}) tras "
+        f"{reintentos} intentos (quedó en {locator.input_value()!r})"
     )
 
 
@@ -104,10 +114,11 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
 
     # Origen primero: cambia qué opciones son válidas en otros campos
     # (como Sexo), así que conviene fijarlo antes que el resto.
-    set_select(page, "#vQORIGEN", ORIGEN_REPRODUCTORAS)
-    set_select(page, "#vQANO", str(fecha.year))
-    set_select(page, "#vQMESDESDE", str(fecha.month))
-    set_select(page, "#vQMESHASTA", str(fecha.month))
+    set_select(page, "#vQORIGEN", "Reproductoras", ORIGEN_REPRODUCTORAS)
+    set_select(page, "#vQANO", str(fecha.year), str(fecha.year))
+    mes_texto = MESES[fecha.month - 1]
+    set_select(page, "#vQMESDESDE", mes_texto, str(fecha.month))
+    set_select(page, "#vQMESHASTA", mes_texto, str(fecha.month))
     set_dia(page, "#vDIADESDE", fecha.day)
     set_dia(page, "#vDIAHASTA", fecha.day)
 
