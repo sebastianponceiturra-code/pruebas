@@ -192,7 +192,7 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
 def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
     configurar_filtros(page, fecha)
 
-    filas_sala = page.get_by_role("row").filter(has_text=SALA_RE)
+    filas_sala = page.locator("tr").filter(has_text=SALA_RE)
     n_salas = filas_sala.count()
     if n_salas == 0:
         print(f"  Sin datos para {fecha.isoformat()}")
@@ -200,12 +200,12 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
 
     archivos: list[Path] = []
     for i in range(n_salas):
-        fila = page.get_by_role("row").filter(has_text=SALA_RE).nth(i)
+        fila = page.locator("tr").filter(has_text=SALA_RE).nth(i)
         fila.locator('input[type="checkbox"]').check()
         page.get_by_role("link", name="Sectores").click()
         page.wait_for_load_state("networkidle")
 
-        filas_sector = page.get_by_role("row").filter(has_text=PLANTA_RE)
+        filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
         n_sectores = filas_sector.count()
 
         grupos: dict[str, list[int]] = {}
@@ -217,7 +217,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
 
         for planta, indices in grupos.items():
             for idx in indices:
-                page.get_by_role("row").filter(has_text=PLANTA_RE).nth(idx).locator(
+                page.locator("tr").filter(has_text=PLANTA_RE).nth(idx).locator(
                     'input[type="checkbox"]'
                 ).check()
             page.get_by_role("link", name="Pabellones Detalle").click()
