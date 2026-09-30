@@ -66,8 +66,18 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.wait_for_load_state("networkidle")
     page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
     page.wait_for_load_state("networkidle")
-    page.locator("#vDIADESDE").fill(str(fecha.day))
-    page.locator("#vDIAHASTA").fill(str(fecha.day))
+    # Los campos de Día tienen una validación (gx.num.valid_integer) que
+    # depende de eventos de teclado reales; .fill() no los dispara y el
+    # valor terminaba reseteado a "0". Se usa press_sequentially() para
+    # simular el tecleo real.
+    dia_desde = page.locator("#vDIADESDE")
+    dia_desde.click()
+    dia_desde.fill("")
+    dia_desde.press_sequentially(str(fecha.day))
+    dia_hasta = page.locator("#vDIAHASTA")
+    dia_hasta.click()
+    dia_hasta.fill("")
+    dia_hasta.press_sequentially(str(fecha.day))
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
 
