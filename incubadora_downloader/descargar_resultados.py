@@ -1,7 +1,7 @@
 """Descarga diaria de resultados de nacimiento desde el sistema de incubación.
 
 Automatiza el flujo manual de http://192.168.9.218:50000/NewIncubadora:
-  Zona=Incubación, Indicador=Fecha Nacimiento, Origen=Reproductoras, Sexo=Todos,
+  Zona=Incubación, Indicador=Fecha Nacimiento, Origen=Reproductoras,
   Rango de Fechas (un día), Confirmar -> por cada Sala: Sectores -> marcar
   pabellones -> Pabellones Detalle -> Excel.
 
@@ -31,7 +31,8 @@ BASE_URL = "http://192.168.9.218:50000/NewIncubadora/servlet/com.incubadora.resu
 # Valores fijos confirmados en el formulario (ver README para cómo obtenerlos
 # de nuevo si el sistema cambia).
 ORIGEN_REPRODUCTORAS = "2"
-SEXO_TODOS = "9"
+# Con Origen=Reproductoras, Sexo solo tiene una opción disponible ("Broiler")
+# y queda seleccionada automáticamente; no hace falta tocarla.
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DESCARGAS_DIR = SCRIPT_DIR / "descargas_tmp"
@@ -64,8 +65,6 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.locator("#vQMESHASTA").select_option(str(fecha.month))
     page.wait_for_load_state("networkidle")
     page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
-    page.wait_for_load_state("networkidle")
-    page.locator("#vPSEXO").select_option(SEXO_TODOS)
     page.wait_for_load_state("networkidle")
     page.locator("#vDIADESDE").fill(str(fecha.day))
     page.locator("#vDIAHASTA").fill(str(fecha.day))
