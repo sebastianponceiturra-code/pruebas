@@ -46,6 +46,51 @@ PLANTA_RE = re.compile(r"PLANTA\s*\d+")
 DEBUG = False
 
 
+def set_select(page: Page, selector: str, value: str, reintentos: int = 3) -> None:
+    """Selecciona un <select> y verifica que el valor quedó aplicado.
+
+    Estos combos disparan una recarga del formulario al cambiar y, en
+    automatización, a veces la selección se revierte antes de que la
+    recarga termine de asentarse (se detectó comparando el HTML real
+    contra el GXState del servidor). Se reintenta hasta que el valor
+    leído de vuelta coincide con el que se pidió.
+    """
+    locator = page.locator(selector)
+    for intento in range(reintentos):
+        locator.select_option(value)
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(300)
+        if locator.input_value() == value:
+            return
+    raise RuntimeError(
+        f"No se pudo fijar {selector}={value!r} tras {reintentos} intentos "
+        f"(quedó en {locator.input_value()!r})"
+    )
+
+
+def set_dia(page: Page, selector: str, dia: int, reintentos: int = 3) -> None:
+    """Escribe un campo Día simulando tecleo real y verifica el valor final.
+
+    .fill() no dispara la validación gx.num.valid_integer (que depende de
+    eventos de teclado) y el campo terminaba reseteado a "0". Se usa
+    press_sequentially() y se verifica/reintenta por si acaso.
+    """
+    locator = page.locator(selector)
+    valor = str(dia)
+    for intento in range(reintentos):
+        locator.click()
+        locator.fill("")
+        locator.press_sequentially(valor)
+        page.keyboard.press("Tab")  # dispara el blur que activa la validación
+        page.wait_for_timeout(200)
+        if locator.input_value() == valor:
+            return
+    raise RuntimeError(
+        f"No se pudo fijar {selector}={valor!r} tras {reintentos} intentos "
+        f"(quedó en {locator.input_value()!r})"
+    )
+
+
 def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.goto(BASE_URL)
     page.wait_for_load_state("networkidle")
@@ -55,29 +100,17 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     # todavía no quedó reflejado, aunque el clic sí se aplicó.
     page.get_by_role("radio", name="Rango de Fechas").click()
     page.wait_for_load_state("networkidle")
-    # Cada <select> dispara su propia recarga del formulario al cambiar
-    # (igual que el radio), así que se espera después de cada uno antes
-    # de tocar el siguiente campo.
-    page.locator("#vQANO").select_option(str(fecha.year))
-    page.wait_for_load_state("networkidle")
-    page.locator("#vQMESDESDE").select_option(str(fecha.month))
-    page.wait_for_load_state("networkidle")
-    page.locator("#vQMESHASTA").select_option(str(fecha.month))
-    page.wait_for_load_state("networkidle")
-    page.locator("#vQORIGEN").select_option(ORIGEN_REPRODUCTORAS)
-    page.wait_for_load_state("networkidle")
-    # Los campos de Día tienen una validación (gx.num.valid_integer) que
-    # depende de eventos de teclado reales; .fill() no los dispara y el
-    # valor terminaba reseteado a "0". Se usa press_sequentially() para
-    # simular el tecleo real.
-    dia_desde = page.locator("#vDIADESDE")
-    dia_desde.click()
-    dia_desde.fill("")
-    dia_desde.press_sequentially(str(fecha.day))
-    dia_hasta = page.locator("#vDIAHASTA")
-    dia_hasta.click()
-    dia_hasta.fill("")
-    dia_hasta.press_sequentially(str(fecha.day))
+    page.wait_for_timeout(300)
+
+    # Origen primero: cambia qué opciones son válidas en otros campos
+    # (como Sexo), así que conviene fijarlo antes que el resto.
+    set_select(page, "#vQORIGEN", ORIGEN_REPRODUCTORAS)
+    set_select(page, "#vQANO", str(fecha.year))
+    set_select(page, "#vQMESDESDE", str(fecha.month))
+    set_select(page, "#vQMESHASTA", str(fecha.month))
+    set_dia(page, "#vDIADESDE", fecha.day)
+    set_dia(page, "#vDIAHASTA", fecha.day)
+
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
 
