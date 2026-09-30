@@ -169,6 +169,20 @@ def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.wait_for_timeout(1500)
     page.get_by_role("button", name="Confirmar").click()
     page.wait_for_load_state("networkidle")
+    # La grilla de resultados también se llena por WebSocket después de
+    # que la página ya terminó de cargar, así que se espera a que
+    # aparezca al menos una fila antes de darse por vencido (si de
+    # verdad no hay datos ese día, este wait simplemente agota su plazo).
+    try:
+        page.wait_for_function(
+            """() => {
+                const tbody = document.querySelector('#Grid1ContainerTbl tbody');
+                return !!tbody && tbody.children.length > 0;
+            }""",
+            timeout=8000,
+        )
+    except Exception:
+        pass
 
     if DEBUG:
         page.screenshot(path=str(SCRIPT_DIR / "debug_ultima_consulta.png"), full_page=True)
