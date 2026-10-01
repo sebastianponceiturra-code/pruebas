@@ -209,7 +209,9 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         page.locator('input[type="checkbox"]:not([disabled])').nth(i).click()
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(500)
-        page.get_by_role("link", name="Sectores").click()
+        if DEBUG:
+            page.screenshot(path=str(SCRIPT_DIR / f"debug_tras_check_sala{i}.png"), full_page=True)
+        page.get_by_role("link", name="Sectores").click(timeout=10000)
         page.wait_for_load_state("networkidle")
 
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
@@ -317,6 +319,10 @@ def main() -> None:
         browser = pw.chromium.launch(headless=args.headless)
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
+        # Por si marcar un checkbox u otra acción dispara un diálogo de
+        # confirmación del navegador (alert/confirm): sin esto, Playwright
+        # se queda esperando indefinidamente a que alguien lo responda.
+        page.on("dialog", lambda dialog: dialog.accept())
 
         fecha = desde
         while fecha <= hasta:
