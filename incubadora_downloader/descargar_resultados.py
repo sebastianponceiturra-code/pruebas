@@ -244,7 +244,11 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
                 page.wait_for_timeout(500)
             page.get_by_role("link", name="Pabellones Detalle").click()
             page.wait_for_load_state("networkidle")
-            with page.expect_download() as info:
+            # Confirmar que de verdad llegamos a la página con el link
+            # "Excel" antes de clickearlo (mismo patrón que las otras
+            # transiciones: a veces la recarga no terminó de asentarse).
+            page.get_by_role("link", name="Excel").wait_for(state="visible", timeout=10000)
+            with page.expect_download(timeout=15000) as info:
                 page.get_by_role("link", name="Excel").click()
             descarga = info.value
             ruta = DESCARGAS_DIR / f"{fecha.isoformat()}_sala{i}_{planta.replace(' ', '')}.xlsx"
