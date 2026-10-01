@@ -223,6 +223,9 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
                 )
             raise
         page.wait_for_load_state("networkidle")
+        page.locator("tr").filter(has_text=PLANTA_RE).first.wait_for(
+            state="visible", timeout=10000
+        )
 
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
         n_sectores = filas_sector.count()
@@ -249,9 +252,20 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             archivos.append(ruta)
             page.get_by_role("link", name="Salir").click()
             page.wait_for_load_state("networkidle")
+            # Confirmar que de verdad volvimos a la vista de Sectores
+            # antes de seguir (si no, el siguiente grupo de planta se
+            # intenta marcar sobre la página equivocada).
+            page.locator("tr").filter(has_text=PLANTA_RE).first.wait_for(
+                state="visible", timeout=10000
+            )
 
         page.get_by_role("link", name="Salir").click()
         page.wait_for_load_state("networkidle")
+        # Confirmar que de verdad volvimos a la lista principal de salas
+        # antes de procesar la siguiente (si el "Salir" no alcanzaba a
+        # completarse, el script seguía marcando checkboxes sobre la
+        # vista de Sectores de la sala anterior).
+        page.get_by_role("button", name="Confirmar").wait_for(state="visible", timeout=10000)
 
     return archivos
 
