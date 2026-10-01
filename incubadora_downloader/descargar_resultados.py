@@ -211,7 +211,17 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         page.wait_for_timeout(500)
         if DEBUG:
             page.screenshot(path=str(SCRIPT_DIR / f"debug_tras_check_sala{i}.png"), full_page=True)
-        page.get_by_role("link", name="Sectores").click(timeout=10000)
+        try:
+            page.get_by_role("link", name="Sectores").click(timeout=10000)
+        except Exception:
+            if DEBUG:
+                page.screenshot(
+                    path=str(SCRIPT_DIR / f"debug_fallo_sectores_sala{i}.png"), full_page=True
+                )
+                (SCRIPT_DIR / f"debug_fallo_sectores_sala{i}.html").write_text(
+                    page.content(), encoding="utf-8"
+                )
+            raise
         page.wait_for_load_state("networkidle")
 
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
