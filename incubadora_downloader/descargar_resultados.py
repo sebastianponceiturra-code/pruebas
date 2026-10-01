@@ -248,7 +248,13 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             # "Excel" antes de clickearlo (mismo patrón que las otras
             # transiciones: a veces la recarga no terminó de asentarse).
             page.get_by_role("link", name="Excel").wait_for(state="visible", timeout=10000)
-            with page.expect_download(timeout=15000) as info:
+            # El archivo parece generarse en el servidor después de que el
+            # link ya es visible; se espera un poco más antes de clickear.
+            page.wait_for_timeout(2000)
+            if DEBUG:
+                href = page.get_by_role("link", name="Excel").get_attribute("href")
+                print(f"    (debug) href del link Excel: {href!r}")
+            with page.expect_download(timeout=20000) as info:
                 page.get_by_role("link", name="Excel").click()
             descarga = info.value
             ruta = DESCARGAS_DIR / f"{fecha.isoformat()}_sala{i}_{planta.replace(' ', '')}.xlsx"
