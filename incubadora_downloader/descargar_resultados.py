@@ -203,7 +203,12 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
 
     archivos: list[Path] = []
     for i in range(n_salas):
-        page.locator('input[type="checkbox"]:not([disabled])').nth(i).check()
+        # .click() en vez de .check(): marcar el checkbox dispara una
+        # recarga y .check() falla verificando el estado justo después
+        # (mismo comportamiento que el radio "Rango de Fechas").
+        page.locator('input[type="checkbox"]:not([disabled])').nth(i).click()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(500)
         page.get_by_role("link", name="Sectores").click()
         page.wait_for_load_state("networkidle")
 
@@ -219,7 +224,9 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
 
         for planta, indices in grupos.items():
             for idx in indices:
-                page.locator('input[type="checkbox"]:not([disabled])').nth(idx).check()
+                page.locator('input[type="checkbox"]:not([disabled])').nth(idx).click()
+                page.wait_for_load_state("networkidle")
+                page.wait_for_timeout(500)
             page.get_by_role("link", name="Pabellones Detalle").click()
             page.wait_for_load_state("networkidle")
             with page.expect_download() as info:
