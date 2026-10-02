@@ -277,13 +277,22 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             )
             corrimiento += len(indices_originales)
 
+        page.wait_for_timeout(500)
         page.get_by_role("link", name="Salir").click()
         page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
         # Confirmar que de verdad volvimos a la lista principal de salas
         # antes de procesar la siguiente (si el "Salir" no alcanzaba a
         # completarse, el script seguía marcando checkboxes sobre la
         # vista de Sectores de la sala anterior).
-        page.get_by_role("button", name="Confirmar").wait_for(state="visible", timeout=10000)
+        try:
+            page.get_by_role("button", name="Confirmar").wait_for(state="visible", timeout=15000)
+        except Exception:
+            if DEBUG:
+                page.screenshot(
+                    path=str(SCRIPT_DIR / f"debug_fallo_salir_sala{i}.png"), full_page=True
+                )
+            raise
 
     return archivos
 
