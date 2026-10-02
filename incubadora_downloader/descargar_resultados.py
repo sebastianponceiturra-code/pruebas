@@ -202,11 +202,14 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         return []
 
     archivos: list[Path] = []
+    corrimiento_sala = 0
     for i in range(n_salas):
         # .click() en vez de .check(): marcar el checkbox dispara una
         # recarga y .check() falla verificando el estado justo después
-        # (mismo comportamiento que el radio "Rango de Fechas").
-        page.locator('input[type="checkbox"]:not([disabled])').nth(i).click()
+        # (mismo comportamiento que el radio "Rango de Fechas"). Al
+        # terminar cada sala su checkbox queda deshabilitado (igual que
+        # los de pabellón), así que hay que restar ese corrimiento.
+        page.locator('input[type="checkbox"]:not([disabled])').nth(i - corrimiento_sala).click()
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(500)
         if DEBUG:
@@ -293,6 +296,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
                     path=str(SCRIPT_DIR / f"debug_fallo_salir_sala{i}.png"), full_page=True
                 )
             raise
+        corrimiento_sala += 1
 
     return archivos
 
