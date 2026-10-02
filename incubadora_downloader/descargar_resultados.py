@@ -226,7 +226,13 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             raise
         page.wait_for_load_state("networkidle")
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
-        filas_sector.first.wait_for(state="visible", timeout=10000)
+        try:
+            filas_sector.first.wait_for(state="visible", timeout=10000)
+        except Exception:
+            # A veces tarda más de lo normal en asentarse; se reintenta
+            # una vez con más margen antes de darse por vencido.
+            page.wait_for_load_state("networkidle")
+            filas_sector.first.wait_for(state="visible", timeout=20000)
         # La grilla de Sectores a veces no terminó de cargar TODAS sus
         # filas justo cuando aparece la primera; se espera un poco más
         # antes de contar cuántos pabellones/checkboxes hay en total.
