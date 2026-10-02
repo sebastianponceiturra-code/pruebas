@@ -227,19 +227,32 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             state="visible", timeout=10000
         )
 
+        # Se detectan las plantas presentes una sola vez (los nombres no
+        # cambian), pero los ÍNDICES de fila/checkbox de cada una se
+        # recalculan justo antes de procesarla: después de descargar un
+        # grupo y volver con "Salir", la lista de checkboxes se
+        # reconstruye y los índices calculados antes ya no sirven.
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
         n_sectores = filas_sector.count()
-
-        grupos: dict[str, list[int]] = {}
+        plantas_vistas: list[str] = []
         for j in range(n_sectores):
             texto = filas_sector.nth(j).inner_text()
             m = PLANTA_RE.search(texto)
             clave = m.group(0) if m else "UNICA"
-            grupos.setdefault(clave, []).append(j)
+            if clave not in plantas_vistas:
+                plantas_vistas.append(clave)
 
-        for planta, indices in grupos.items():
+        for planta in plantas_vistas:
+            filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
+            checkboxes_sector = page.locator('input[type="checkbox"]:not([disabled])')
+            n_actual = filas_sector.count()
+            indices = [
+                j
+                for j in range(n_actual)
+                if planta in filas_sector.nth(j).inner_text()
+            ]
             for idx in indices:
-                page.locator('input[type="checkbox"]:not([disabled])').nth(idx).click()
+                checkboxes_sector.nth(idx).click()
                 page.wait_for_load_state("networkidle")
                 page.wait_for_timeout(500)
             page.get_by_role("link", name="Pabellones Detalle").click()
