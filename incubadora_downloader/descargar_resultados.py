@@ -227,32 +227,26 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             state="visible", timeout=10000
         )
 
-        # Se detectan las plantas presentes una sola vez (los nombres no
-        # cambian), pero los ÍNDICES de fila/checkbox de cada una se
-        # recalculan justo antes de procesarla: después de descargar un
-        # grupo y volver con "Salir", la lista de checkboxes se
-        # reconstruye y los índices calculados antes ya no sirven.
+        # Las filas no cambian de posición, pero sus checkboxes se
+        # DESHABILITAN (no desaparecen) una vez descargado su grupo.
+        # Como "checkboxes habilitados" se achica por cada grupo ya
+        # procesado, hay que restarle ese corrimiento a los índices
+        # originales de los grupos siguientes (se calculan todos una
+        # sola vez, al principio, cuando todavía están todos habilitados).
         filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
         n_sectores = filas_sector.count()
-        plantas_vistas: list[str] = []
+        grupos: dict[str, list[int]] = {}
         for j in range(n_sectores):
             texto = filas_sector.nth(j).inner_text()
             m = PLANTA_RE.search(texto)
             clave = m.group(0) if m else "UNICA"
-            if clave not in plantas_vistas:
-                plantas_vistas.append(clave)
+            grupos.setdefault(clave, []).append(j)
 
-        for planta in plantas_vistas:
-            filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
+        corrimiento = 0
+        for planta, indices_originales in grupos.items():
             checkboxes_sector = page.locator('input[type="checkbox"]:not([disabled])')
-            n_actual = filas_sector.count()
-            indices = [
-                j
-                for j in range(n_actual)
-                if planta in filas_sector.nth(j).inner_text()
-            ]
-            for idx in indices:
-                checkboxes_sector.nth(idx).click()
+            for idx in indices_originales:
+                checkboxes_sector.nth(idx - corrimiento).click()
                 page.wait_for_load_state("networkidle")
                 page.wait_for_timeout(500)
             page.get_by_role("link", name="Pabellones Detalle").click()
@@ -281,6 +275,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             page.locator("tr").filter(has_text=PLANTA_RE).first.wait_for(
                 state="visible", timeout=10000
             )
+            corrimiento += len(indices_originales)
 
         page.get_by_role("link", name="Salir").click()
         page.wait_for_load_state("networkidle")
