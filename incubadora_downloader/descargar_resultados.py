@@ -225,9 +225,15 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
                 )
             raise
         page.wait_for_load_state("networkidle")
-        page.locator("tr").filter(has_text=PLANTA_RE).first.wait_for(
-            state="visible", timeout=10000
+        # Filas de pabellón reales: con texto "PLANTA N" Y que además
+        # tengan un checkbox adentro. Sin el segundo filtro, se cuelan
+        # filas de subtotal que también dicen "PLANTA N" pero no tienen
+        # checkbox, desalineando los índices contra la lista de
+        # checkboxes habilitados.
+        filas_sector_sel = page.locator("tr").filter(has_text=PLANTA_RE).filter(
+            has=page.locator('input[type="checkbox"]')
         )
+        filas_sector_sel.first.wait_for(state="visible", timeout=10000)
         # La grilla de Sectores a veces no terminó de cargar TODAS sus
         # filas justo cuando aparece la primera; se espera un poco más
         # antes de contar cuántos pabellones/checkboxes hay en total.
@@ -239,7 +245,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         # procesado, hay que restarle ese corrimiento a los índices
         # originales de los grupos siguientes (se calculan todos una
         # sola vez, al principio, cuando todavía están todos habilitados).
-        filas_sector = page.locator("tr").filter(has_text=PLANTA_RE)
+        filas_sector = filas_sector_sel
         n_sectores = filas_sector.count()
         grupos: dict[str, list[int]] = {}
         for j in range(n_sectores):
