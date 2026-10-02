@@ -228,6 +228,10 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         page.locator("tr").filter(has_text=PLANTA_RE).first.wait_for(
             state="visible", timeout=10000
         )
+        # La grilla de Sectores a veces no terminó de cargar TODAS sus
+        # filas justo cuando aparece la primera; se espera un poco más
+        # antes de contar cuántos pabellones/checkboxes hay en total.
+        page.wait_for_timeout(1500)
 
         # Las filas no cambian de posición, pero sus checkboxes se
         # DESHABILITAN (no desaparecen) una vez descargado su grupo.
