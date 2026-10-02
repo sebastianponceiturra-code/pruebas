@@ -248,6 +248,17 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             clave = m.group(0) if m else "UNICA"
             grupos.setdefault(clave, []).append(j)
 
+        checkboxes_sector_inicial = page.locator('input[type="checkbox"]:not([disabled])')
+        n_checkboxes_inicial = checkboxes_sector_inicial.count()
+        if DEBUG:
+            print(
+                f"    (debug) sala{i}: {n_sectores} filas PLANTA, "
+                f"{n_checkboxes_inicial} checkboxes habilitados, grupos={grupos}"
+            )
+            page.screenshot(
+                path=str(SCRIPT_DIR / f"debug_sectores_sala{i}.png"), full_page=True
+            )
+
         corrimiento = 0
         for planta, indices_originales in grupos.items():
             checkboxes_sector = page.locator('input[type="checkbox"]:not([disabled])')
