@@ -140,6 +140,21 @@ def set_origen_reproductoras(page: Page, reintentos: int = 3) -> None:
     )
 
 
+def click_salir(page: Page) -> None:
+    """Clickea el link "Salir", forzando el clic si algo lo tapa visualmente.
+
+    En tablas de resultados largas, el encabezado de la grilla a veces
+    queda superpuesto sobre el link y Playwright se niega a hacer un
+    clic normal (lo detecta como "tapado"), aunque el link sigue siendo
+    el correcto.
+    """
+    salir = page.get_by_role("link", name="Salir")
+    try:
+        salir.click(timeout=10000)
+    except Exception:
+        salir.click(force=True)
+
+
 def configurar_filtros(page: Page, fecha: dt.date) -> None:
     page.goto(BASE_URL)
     page.wait_for_load_state("networkidle")
@@ -295,7 +310,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             ruta = DESCARGAS_DIR / f"{fecha.isoformat()}_sala{i}_{planta.replace(' ', '')}.xlsx"
             descarga.save_as(ruta)
             archivos.append(ruta)
-            page.get_by_role("link", name="Salir").click()
+            click_salir(page)
             page.wait_for_load_state("networkidle")
             # Confirmar que de verdad volvimos a la vista de Sectores
             # antes de seguir (si no, el siguiente grupo de planta se
@@ -306,7 +321,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             corrimiento += len(indices_originales)
 
         page.wait_for_timeout(500)
-        page.get_by_role("link", name="Salir").click()
+        click_salir(page)
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(1000)
         # Confirmar que de verdad volvimos a la lista principal de salas
@@ -319,7 +334,7 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
             # A veces el "Salir" tarda más de lo normal en asentarse;
             # se reintenta una vez antes de darse por vencido.
             try:
-                page.get_by_role("link", name="Salir").click()
+                click_salir(page)
                 page.wait_for_load_state("networkidle")
                 page.get_by_role("button", name="Confirmar").wait_for(
                     state="visible", timeout=20000
@@ -405,12 +420,6 @@ def main() -> None:
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=args.headless)
-        context = browser.new_context(accept_downloads=True)
-        page = context.new_page()
-        # Por si marcar un checkbox u otra acción dispara un diálogo de
-        # confirmación del navegador (alert/confirm): sin esto, Playwright
-        # se queda esperando indefinidamente a que alguien lo responda.
-        page.on("dialog", lambda dialog: dialog.accept())
 
         fecha = desde
         while fecha <= hasta:
@@ -421,16 +430,28 @@ def main() -> None:
                 continue
 
             print(f"Procesando {iso}...")
+            # Contexto (sesión/cookies) nuevo por cada día: si un día falla
+            # a media navegación puede dejar al servidor en un estado raro
+            # que arrastre el error a los días siguientes si se reutiliza
+            # la misma pestaña.
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+            # Por si marcar un checkbox u otra acción dispara un diálogo de
+            # confirmación del navegador (alert/confirm): sin esto,
+            # Playwright se queda esperando indefinidamente a que alguien
+            # lo responda.
+            page.on("dialog", lambda dialog: dialog.accept())
             try:
                 archivos = descargar_dia(page, fecha)
                 consolidar([(fecha, a) for a in archivos])
                 print(f"  OK: {len(archivos)} archivo(s) consolidado(s).")
             except Exception as exc:  # noqa: BLE001 - se registra y sigue con el resto de los días
                 print(f"  ERROR en {iso}: {exc}", file=sys.stderr)
+            finally:
+                context.close()
 
             fecha += dt.timedelta(days=1)
 
-        context.close()
         browser.close()
 
 
