@@ -288,13 +288,22 @@ def descargar_dia(page: Page, fecha: dt.date) -> list[Path]:
         # completarse, el script seguía marcando checkboxes sobre la
         # vista de Sectores de la sala anterior).
         try:
-            page.get_by_role("button", name="Confirmar").wait_for(state="visible", timeout=15000)
+            page.get_by_role("button", name="Confirmar").wait_for(state="visible", timeout=10000)
         except Exception:
-            if DEBUG:
-                page.screenshot(
-                    path=str(SCRIPT_DIR / f"debug_fallo_salir_sala{i}.png"), full_page=True
+            # A veces el "Salir" tarda más de lo normal en asentarse;
+            # se reintenta una vez antes de darse por vencido.
+            try:
+                page.get_by_role("link", name="Salir").click()
+                page.wait_for_load_state("networkidle")
+                page.get_by_role("button", name="Confirmar").wait_for(
+                    state="visible", timeout=20000
                 )
-            raise
+            except Exception:
+                if DEBUG:
+                    page.screenshot(
+                        path=str(SCRIPT_DIR / f"debug_fallo_salir_sala{i}.png"), full_page=True
+                    )
+                raise
 
     return archivos
 
